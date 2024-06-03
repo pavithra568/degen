@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "hardhat/console.sol";
+
+contract HandbagToken is ERC20, Ownable, ERC20Burnable {
+    event LogMessage(string message);
+
+    enum HandbagType { Puma, SafariBag }
+
+    mapping(HandbagType => uint256) public handbagPrices;
+    HandbagType public lastPurchasedHandbag;
+
+    constructor(address initialOwner) Ownable(initialOwner) ERC20("HandbagToken", "HT") {
+        handbagPrices[HandbagType.Puma] = 400;
+        handbagPrices[HandbagType.SafariBag] = 200;
+    }
+
+    function mintTokens(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
+    }
+
+    function transferTokens(address to, uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "INSUFFICIENT TOKENS!!");
+        _transfer(msg.sender, to, amount);
+    }
+
+    function redeemHandbag(uint256 tokenAmount) public {
+        require(tokenAmount > 0, "Invalid token amount");
+
+        HandbagType _handbagType = determineHandbagType(tokenAmount);
+        require(handbagPrices[_handbagType] > 0, "Invalid handbag type");
+        require(balanceOf(msg.sender) >= handbagPrices[_handbagType], "INSUFFICIENT TOKENS!!");
+        
+        lastPurchasedHandbag = _handbagType;
+        _burn(msg.sender, handbagPrices[_handbagType]);
+        emit LogMessage("Purchase Successful");
+    }
+
+    function getBalance() external view returns (uint256) {
+        return balanceOf(msg.sender);
+    }
+
+    function burnTokens(uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "INSUFFICIENT TOKENS!!");
+        _burn(msg.sender, amount);
+        emit LogMessage("Tokens burned successfully");
+    }
+
+    function determineHandbagType(uint256 tokenAmount) internal view returns (HandbagType) {
+        if (tokenAmount >= handbagPrices[HandbagType.Puma]) {
+            return HandbagType.Puma;
+        } else if (tokenAmount >= handbagPrices[HandbagType.SafariBag]) {
+            return HandbagType.SafariBag;
+        } else {
+            revert("Insufficient tokens to purchase any handbag");
+        }
+    }
+
+    function getLastPurchasedHandbag() external view returns (HandbagType) {
+        return lastPurchasedHandbag;
+    }
+}
